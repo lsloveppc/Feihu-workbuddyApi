@@ -325,7 +325,7 @@ curl -s http://localhost:7863/healthz
 
 ```bash
 # 1. 克隆
-git clone https://github.com/lsloveppc/Feihu-workbuddyApi.git   # 把 lsloveppc 换掉
+git clone https://github.com/lsloveppc/Feihu-workbuddyApi.git
 cd feihu
 
 # 2. 准备配置（compose 挂载此文件，缺失会导致容器启动失败）
