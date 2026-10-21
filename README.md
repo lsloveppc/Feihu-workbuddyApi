@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>个人自用的 CodeBuddy / WorkBuddy 多账号网关 · OpenAI 兼容 · 带 Web 管理面板</b><br>
-  账号池轮转 · 熔断与冷却 · 会话粘性 · 定时签到 / 活跃 / 旅行 / 保活 · 成长任务一键完成 · 流式 / 非流式 · <b>通道指纹一致性</b>
+  账号池轮转 · 熔断与冷却 · 会话粘性 · 定时签到 / 活跃 / 旅行 / 保活 · 成长任务一键完成 · 流式 / 非流式 · <b>单二进制 · 开箱即用</b>
 </p>
 
 <p align="center">
@@ -19,84 +19,11 @@
 ---
 
 > [!NOTE]
-> **这是 [linguo2625469/workbuddy2api-panel](https://github.com/linguo2625469/workbuddy2api-panel) 的个人维护分支**，代号「绯狐」。
-> 上游项目于 2026-10-21 宣布停止维护，核心理由之一是「WorkBuddy 对非官方客户端的识别与拦截正在收紧」。
-> 本分支接手后只做两件事：**修既有缺陷**，以及把 **通道指纹一致性** 做扎实。
-> 定位不变：单人自用账号管理（签到 / 保活 / 给自己的本地工具提供 OpenAI 兼容入口），不做任何形式的分发与售卖。
+> **这是个人维护分支**，代号「绯狐」，基于 [linguo2625469/workbuddy2api-panel](https://github.com/linguo2625469/workbuddy2api-panel)。
+> 上游已于 2026-10-21 停止维护，本分支由个人接手维持可用，跟随上游协议变化继续更新。
+> 定位不变：单人自用账号管理（签到 / 保活 / 给自己的本地工具提供 OpenAI 兼容入口）。
 
 > ⚠️ **仅限自用账号，禁止批量小号分发额度、二次打包或收费售卖。** 详见 [使用声明（必读）](#使用声明必读)。
-
-## 上游收紧反代通道：已定位到可解的那一层
-
-上游的「收紧」不是一件事，而是四层，可解性完全不同。本分支按这个分层做工程：
-
-| 层 | 上游检验什么 | 原始分支状态 | 本分支处置 |
-|---|---|---|---|
-| L1 报文层 | UA 版本、头族、body 字段一致性 | 版本**写死** 5.5.4（UA）与 5.5.6（桌面指纹），上游实际已 5.8.x | ✅ **已解**：版本段从本机官方客户端 `last-launch.json` 学，两处收敛为同一来源 |
-| L2 设备身份层 | qimei36 / machine_id / device_token 与登录态绑定 | 一律用 uid 哈希**伪造**，与真机值不一致 | ✅ **已解**：真机标识可注入 auth 文件，出站优先用真值 |
-| L3 传输层 | TLS ClientHello（JA3/JA4）、HTTP/2 SETTINGS、头顺序 | Go `crypto/tls` 与 Electron BoringSSL 指纹差异明显 | ⏳ 已备探针，待实测定位后再动传输栈 |
-| L4 请求签名 | body+timestamp 的 HMAC | 未知 | ⏳ 需逆向官方客户端，未开始 |
-| L5 账号风控 | 账号历史行为 | `11140 request illegal` | ❌ **不可解**：账号级封禁，改协议无效 |
-
-判断依据是上游自己的措辞：`11-128` 的 displayTips 写「可能不是官方客户端发送」。它校验的是**请求来源的客户端真实性**，而不是某个字段值。所以策略不是继续堆字段，而是让网关**以真机身份出站**。
-
-### 落地一：版本段跟随真机
-
-仓库早期在 `internal/upstream/headers.go` 写死客户端版本 5.5.4、在 `internal/upstream/desktop.go` 写死桌面指纹 5.5.6，而上游桌面端已经到 5.8.3（`~/.workbuddy/last-launch.json` 实测）。三个 minor 的落差、加上同一实例跨端点自报两个版本，是最容易被抓的形态。
-
-现在版本段由 `internal/upstream/official_version.go` 统一决定，优先级：
-
-```
-upstream.client_version（显式钉死）> 本机官方客户端 last-launch.json > 内置默认
-```
-
-默认开启跟随（`upstream.follow_official_version`），官方客户端升级后网关自动跟上。启动日志会打印实际采用的版本与来源文件；若显式钉死的版本与真机版本不一致，会打 WARN。
-
-### 落地二：真机设备标识注入
-
-网关此前用 `sha256(uid)` 派生 machineId / qimei36。对一个**在真机上登录过**的账号来说，「真机 + 网关」两台不同设备同时活跃，是上游设备关联最直接的抓点。
-
-`scripts/mine-identity.ps1` 从本机官方客户端数据目录读取真值并注入 auth 文件：
-
-```powershell
-# 先看会写什么
-.\scripts\mine-identity.ps1 -DryRun
-# 实际注入（auth 目录与 config.json 的 auth_dir 一致）
-.\scripts\mine-identity.ps1 -AuthDir .\auths
-```
-
-采集项：
-
-```
-machine_id  ← <data-dir>\device-id           (36 位 UUID)
-qimei36     ← <data-dir>\qimei-cache.json    (腾讯 QIMEI36)
-```
-
-两者都只写「有真值」的键，缺哪个跳过哪个 —— 伪造一个与真机不同的值，比缺失更容易被识别成两台设备。注入后随 token refresh 一起原子写回，不会因重启丢失。
-
-> **隐私边界**：这个脚本只在本机读、只写本机的 auth 文件，不联网、不上传任何东西。但它读取的是官方客户端的数据目录（~/.workbuddy），如果你把拿到的 auth 文件或整个 uths/ 目录分享出去，等于把设备标识和自己的登录凭证一起给了别人 —— 别这么做。
-
-### 落地三：差分探针（定位工具）
-
-改协议前必须先知道**是哪一层**触发的拦截。`scripts/chanprobe.py` 用同一账号、同一 body，每次只改一个变量（TLS 指纹 / UA / 头族 / 路径 / device_token），把「哪个变量让 11-128 消失」变成可观测事实：
-
-```bash
-python scripts/chanprobe.py --dry-run                       # 只看将跑哪些变体
-python scripts/chanprobe.py --auth auths/workbuddy-<uid>.json   # 真实探测
-```
-
-响应按网关自己的 `Classify` 口径归类（`CHANNEL_REFUSED` / `ACCOUNT_RESTRICTED` / `WAF_BLOCK` / `SOFT_RATE` …），结果矩阵直接对应处置分支。依赖 `curl_cffi`（可发真实 Chrome JA3/JA4）：`python -m pip install curl_cffi`。
-
-**纪律**：任何变体拿到 11-128，先看是不是**全部**变体都拿到了（那是 token/账号层问题），再比较命中与未命中变体的差异项。
-
-### 尚未完成
-
-- **L3 传输层**：若探针证明 TLS 指纹是被校验的维度，需要把 `up.ChatHTTP.Transport` 换成 uTLS（`HelloChrome_Auto`）+ 只协商 `http/1.1` 以避开 HTTP/2 SETTINGS 指纹，并放弃 `http.Header`（map 会重排）改手写请求头顺序。
-- **L4 请求签名**：若以上都不奏效，说明存在请求签名，需逆向官方 Electron 客户端的 asar。
-
-**诚实边界**：L5（`11140`）不可解。如果上游的通道校验绑定「账号历史活跃设备」，那么「批量注册新号 + 网关直连」这个模式寿命有限，唯一活法是先用真机官方客户端登录养设备画像，再把身份交给网关。单账号自用（本机装着官方客户端、有真实 qimei36 与 device-id）恰恰是最可能长期存活的形态。
-
-
 
 ## 使用声明（必读）
 
@@ -225,7 +152,7 @@ python scripts/chanprobe.py --auth auths/workbuddy-<uid>.json   # 真实探测
 
 ## 🆚 与上游的差异
 
-本分支相对 [上游 master](https://github.com/Sliverkiss/workbuddy2api) 的增量（均已在真实多账号环境验证）：
+相对原始项目的能力增量（均已在真实多账号环境验证）：
 
 ### 新增
 
