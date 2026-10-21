@@ -309,7 +309,7 @@ mkdir -p auths data && cp config.example.json config.json
 docker run -d --name feihu \
   -p 7863:7863 -e TZ=Asia/Shanghai \
   -v ./auths:/app/auths -v ./data:/app/data -v ./config.json:/app/config.json \
-  ghcr.io/FEIHU_OWNER/feihu:latest
+  ghcr.io/lsloveppc/feihu:latest
 
 # 3. 健康检查（无可用账号时返回 503）
 curl -s http://localhost:7863/healthz
@@ -325,7 +325,7 @@ curl -s http://localhost:7863/healthz
 
 ```bash
 # 1. 克隆
-git clone https://github.com/FEIHU_OWNER/feihu.git   # 把 FEIHU_OWNER 换掉
+git clone https://github.com/lsloveppc/feihu.git   # 把 lsloveppc 换掉
 cd feihu
 
 # 2. 准备配置（compose 挂载此文件，缺失会导致容器启动失败）

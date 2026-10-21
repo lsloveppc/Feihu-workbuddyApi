@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   绯狐 · 一键发布到 GitHub：建仓 → 替换 owner 占位 → 推送 → 发 Release 附二进制。
 
@@ -6,7 +6,7 @@
   前置：本机已 `gh auth login`（或设置 GH_TOKEN 环境变量）。
 
   它做的事：
-    1. 用 gh api 取当前登录账号，把仓库里所有 FEIHU_OWNER 占位替换成真实 owner
+    1. 用 gh api 取当前登录账号，把仓库里所有 lsloveppc 占位替换成真实 owner
        （README / LICENSE / CI 注释里的仓库地址）；
     2. 若远程仓库不存在则创建，存在则复用；
     3. 推送当前分支；
@@ -63,7 +63,7 @@ Write-Host "GitHub 账号: $Owner" -ForegroundColor Cyan
 Write-Host "目标仓库: $Owner/$RepoName ($Visibility)" -ForegroundColor Cyan
 
 # --- 2. 替换 owner 占位 -----------------------------------------------------
-$Placeholder = 'FEIHU_OWNER'
+$Placeholder = 'lsloveppc'
 $files = git grep -l $Placeholder 2>$null
 if ($files) {
     Write-Host "替换 owner 占位：$($files -join ', ')" -ForegroundColor Yellow
