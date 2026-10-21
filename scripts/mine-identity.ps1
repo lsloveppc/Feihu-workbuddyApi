@@ -39,6 +39,11 @@ param(
     [string]$AuthDir = ".\auths",
     [string]$DataDir = "",
     [string]$DeviceToken = "",
+    # Only 只处理文件名/uid 匹配该子串的 auth。多账号环境务必用它：
+    # 真机标识只应注入「确实在这台机器上登录过」的那个账号。
+    [string]$Only = "",
+    # Force 多账号时强行全部注入（默认拒绝，见下方风控说明）。
+    [switch]$Force,
     [switch]$DryRun
 )
 
@@ -103,6 +108,23 @@ if (-not (Test-Path $AuthDir)) {
 }
 $files = Get-ChildItem $AuthDir -Filter "workbuddy*.json" -File
 if (-not $files) { Write-Host "auths 目录下没有 workbuddy*.json" -ForegroundColor Yellow; exit 1 }
+
+if ($Only) {
+    $files = @($files | Where-Object { $_.Name -like "*$Only*" })
+    if (-not $files) { Write-Host "-Only '$Only' 没匹配到任何 auth 文件" -ForegroundColor Red; exit 1 }
+}
+
+# 多账号防护（重要）：把同一台设备的 machine_id/qimei36 注入多个账号，等于告诉上游
+# 「一台设备关联 N 个账号」—— 这正是批量小号最典型的关联特征，比设备标识缺失更危险。
+# 所以默认拒绝，要求显式 -Only 指定真机登录过的那个账号；确实要共用本机才加 -Force。
+if (-not $Only -and $files.Count -gt 1 -and -not $Force) {
+    Write-Host ""
+    Write-Host "检测到 $($files.Count) 个账号，已拒绝全部注入。" -ForegroundColor Yellow
+    Write-Host "原因：同一 device-id / qimei36 注入多个账号 = 上游视角「一台设备关联多个账号」，" -ForegroundColor Yellow
+    Write-Host "      这是批量小号的典型关联特征。" -ForegroundColor Yellow
+    Write-Host "做法：用 -Only <uid片段> 只注入真机登录过的那个账号；确实要多账号共用本机再加 -Force。" -ForegroundColor Yellow
+    exit 3
+}
 
 $changed = 0
 foreach ($f in $files) {

@@ -762,10 +762,14 @@ type Client struct {
 	// 目录、或客户端装在非常规位置时用）。空 = 按约定路径自动探测。
 	OfficialLaunchFile string
 
-	// officialVerMu/officialVer 官方版本探测缓存（TTL 内复用，避免每请求读盘）。
-	// 版本读取一律走 OfficialVersion() / effectiveClientVersion()，不要直读该字段。
+	// officialVer 官方版本探测缓存（TTL 内复用，避免每请求读盘）。
+	//
+	// 读路径走 atomic 无锁：clientVersion() 在**每一个出站请求**构造 UA 时都会被
+	// 调用，若读也要抢 Mutex，它就成了高并发下的全局锁热点（所有 chat/refresh/
+	// billing 请求串行化在一个版本查询上）。officialVerMu 只用于探测本身
+	// （双检防击穿 + 避免并发重复读盘），不保护读。
+	officialVer   atomic.Pointer[officialVersionCache]
 	officialVerMu sync.Mutex
-	officialVer   officialVersionCache
 
 	// CliVersion 出站 UA 中 `CLI/<ver>` 段版本。空 = 内置默认（官方内置 CLI 2.137.1）。
 	CliVersion string

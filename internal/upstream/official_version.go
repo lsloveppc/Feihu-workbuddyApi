@@ -99,27 +99,36 @@ func readOfficialLaunch(path string) (ver, build string, ok bool) {
 }
 
 // OfficialVersion 返回本机官方客户端版本（带 TTL 缓存）。
+//
+// 并发模型：读路径无锁（atomic.Pointer），只有探测本身持锁并做双检 —— 因为
+// clientVersion() 在每个出站请求都会调用，读路径抢锁会成为全局热点。
+//
 // 探测失败返回 ok=false —— 调用方回落内置默认，不阻塞任何请求路径。
 // source 为命中的文件路径，供面板/日志对账（「网关拟真是从哪个文件学的」）。
 func (c *Client) OfficialVersion() (ver, build, source string, ok bool) {
 	if c == nil {
 		return "", "", "", false
 	}
-	c.officialVerMu.Lock()
-	defer c.officialVerMu.Unlock()
-	if !c.officialVer.At.IsZero() && time.Since(c.officialVer.At) < officialCacheTTL {
-		got := c.officialVer
+	if got := c.officialVer.Load(); got != nil && time.Since(got.At) < officialCacheTTL {
 		return got.Version, got.Build, got.Source, got.OK
 	}
+
+	c.officialVerMu.Lock()
+	defer c.officialVerMu.Unlock()
+	// 双检：等锁期间可能已有别的 goroutine 完成探测（避免一窝蜂重复读盘）。
+	if got := c.officialVer.Load(); got != nil && time.Since(got.At) < officialCacheTTL {
+		return got.Version, got.Build, got.Source, got.OK
+	}
+
 	for _, p := range officialProbePaths(c.OfficialLaunchFile) {
 		if v, b, found := readOfficialLaunch(p); found {
-			c.officialVer = officialVersionCache{
+			c.officialVer.Store(&officialVersionCache{
 				Version: v, Build: b, Source: p, OK: true, At: time.Now(),
-			}
+			})
 			return v, b, p, true
 		}
 	}
-	c.officialVer = officialVersionCache{At: time.Now()}
+	c.officialVer.Store(&officialVersionCache{At: time.Now()})
 	return "", "", "", false
 }
 
