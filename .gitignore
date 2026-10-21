@@ -45,3 +45,6 @@ docs/
 *.zip
 server.exe
 .DS_Store
+
+# Local release artifacts (build-release.ps1)
+/dist/
