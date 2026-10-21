@@ -13,10 +13,13 @@ import (
 )
 
 const (
-	// defaultClientVersion 出站 WorkBuddy 客户端版本段（UA 的 `WorkBuddy/<ver>` 与
-	// 白名单头组的 X-IDE-Version）。对齐官方 WorkBuddy Desktop 分发包版本（5.5.4）。
-	// config upstream.client_version 可覆盖（空 = 内置默认）。
-	defaultClientVersion = "5.5.4"
+	// defaultClientVersion 内置兜底版本段（UA 的 `WorkBuddy/<ver>` 与 X-IDE-Version）。
+	//
+	// 它不是主来源：默认开启的 upstream.follow_official_version 会优先读本机官方
+	// 客户端的 last-launch.json（真实安装版本），只有探测不到时才落到这里。
+	// 所以这个值只需「不离谱」——给没装官方客户端的部署一个不至于太旧的版本号。
+	// 2026-10 实测官方桌面端为 5.8.3；上游改版时同步此值即可，逻辑不用动。
+	defaultClientVersion = "5.8.3"
 	// defaultCliVersion 出站 UA 中 `CLI/<ver>` 段版本。对齐官方内置 CLI（2.137.1）。
 	// config upstream.cli_version 可覆盖（空 = 内置默认）。
 	defaultCliVersion = "2.137.1"
