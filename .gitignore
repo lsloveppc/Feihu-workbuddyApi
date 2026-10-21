@@ -37,7 +37,10 @@ docs/
 !RELEASE_NOTES.md
 
 # Windows binaries
-/wb2api.exe
+/feihu.exe
+/login.exe
+/credit.exe
+/signin.exe
 /login.exe
 /credit.exe
 
