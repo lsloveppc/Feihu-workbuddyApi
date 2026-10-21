@@ -40,7 +40,7 @@ const (
 	desktopReportPath    = "/v2/report"
 	desktopAppearanceSet = "/v2/user-asset/appearance/set"
 	// 桌面端出站 UA 由 Client.desktopUAFor() 按生效版本段动态组装（official_version.go）：
-	// 版本段跟随本机官方客户端，避免与 chat 路径自报不同版本被关联识别。
+	// 版本段跟随本机已安装客户端，与 chat 路径保持一致。
 	// 历史实测值（5.5.6 内嵌 CLI 2.137.1）：WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1
 )
 
@@ -62,9 +62,8 @@ type DesktopEvent map[string]any
 // 版本段与设备标识都优先取真实值，而不是常量/派生值：
 //   - ideVersion / extVersion ← Client.effectiveDesktopVersion()：跟随本机官方客户端，
 //     与 chat 路径的 UA 版本段自洽（旧实现两处各自写死 5.5.6 / 5.5.4）。
-//   - machineId ← auth.MachineID（真机 .workbuddy/device-id），缺省回落 uid 派生。
-//   - qimei36   ← auth.QIMEI36（真机 QIMEI36），缺省**不发该键**：没观测到就不编造，
-//     伪造一个与真机不同的 qimei36 比不发更容易被识别成两台设备。
+//   - machineId ← auth.MachineID，未配置时回落 uid 派生。
+//   - qimei36   ← auth.QIMEI36，未配置时不发送该键（不生成假值）。
 //   - sessionId 恒由 uid 派生（会话级，与设备标识无关）。
 func (c *Client) desktopFingerprint(a *auth.Auth) map[string]any {
 	now := time.Now().UnixMilli()

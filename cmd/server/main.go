@@ -162,26 +162,22 @@ func main() {
 	up.DeviceToken = cfg.Upstream.DeviceToken
 	up.DeviceTokenFile = cfg.Upstream.DeviceTokenFile
 	up.PassthroughIP = cfg.Upstream.PassthroughIP
-	// 版本一致性（上游收紧反代在「报文层」的主要抓手）：
-	// FollowOfficialVersion 缺省 true —— 版本段从本机官方客户端的 last-launch.json 学，
-	// 而不是写死常量。旧实现 UA 写死 5.5.4、桌面指纹写死 5.5.6，而上游桌面端已到
-	// 5.8.x：三个 minor 的落差 + 同一实例自报两个版本，是 11-128 通道校验最容易被
-	// 抓的形态（见 internal/upstream/official_version.go 的推导）。
+	// 版本段来源：FollowOfficialVersion 缺省 true —— 从本机已安装客户端的
+	// last-launch.json 读取版本，而不是写死常量（见 internal/upstream/official_version.go）。
 	up.FollowOfficialVersion = cfg.Upstream.FollowOfficialVersion == nil || *cfg.Upstream.FollowOfficialVersion
 	up.DesktopVersion = cfg.Upstream.DesktopVersion
 	up.OfficialLaunchFile = cfg.Upstream.OfficialLaunchFile
 	if up.FollowOfficialVersion {
 		if v, b, src, ok := up.OfficialVersion(); ok {
-			log.Printf("[upstream] 版本段跟随本机官方客户端：%s (build %s, 来源 %s)", v, b, src)
+			log.Printf("[upstream] 版本段取自本机客户端：%s (build %s, 来源 %s)", v, b, src)
 		} else {
-			log.Printf("WARN: [upstream] follow_official_version 已开启，但未找到官方客户端 last-launch.json：" +
+			log.Printf("WARN: [upstream] follow_official_version 已开启，但未找到客户端 last-launch.json：" +
 				"回落内置默认版本。容器部署可用 upstream.official_launch_file 指定宿主路径")
 		}
 	} else if cfg.Upstream.ClientVersion != "" {
-		// 显式钉死版本时做一次漂移对账：让「我钉的版本 vs 真机版本」在启动日志里可见，
-		// 避免上游收紧后仍在用一个肉眼不可见的旧版本号。
+		// 显式指定版本时做一次对账，便于确认配置值与本机实际安装版本的关系。
 		if v, _, _, ok := up.OfficialVersion(); ok && v != cfg.Upstream.ClientVersion {
-			log.Printf("WARN: [upstream] client_version=%s 与本机官方客户端 %s 不一致（通道校验风险）",
+			log.Printf("WARN: [upstream] client_version=%s 与本机客户端版本 %s 不一致",
 				cfg.Upstream.ClientVersion, v)
 		}
 	}

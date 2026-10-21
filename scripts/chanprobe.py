@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""chanprobe.py — 上游通道校验（11-128 "request illegal"）差分探针。
+"""chanprobe.py — 上游请求形态诊断工具。
 
-背景
+用途
 ----
-仓库现存的出站拟真只覆盖「报文层」（UA 三段式 / Origin-Referer / X-IDE-* /
-X-Device-Token / X-Machine-ID 派生）。上游收紧到「通道校验」时，
-`{"code":"11-128","msg":"request illegal"}` 的 displayTips 明确写「可能不是官方
-客户端发送」——说明上游在校验**请求来源的客户端真实性**，而不是某个字段值。
+同一账号、同一请求体，逐项改变请求形态（TLS 指纹 / User-Agent / 请求头组 /
+端点路径 / 设备令牌），记录上游响应，用于排查某类请求失败的具体成因。
+每次只改一个变量，结果才有对照意义；定位清楚之前不建议先改网关代码，
+否则多个变量一起动，就分不清是哪一项起作用。
 
-字段层已经拟真过了，所以剩下的可能面只有：
-  L2  TLS 指纹（JA3/JA4/SAN/ALPN —— Electron 的 BoringSSL vs Go crypto/tls）
-  L3  HTTP/2 层（SETTINGS / WINDOW_UPDATE / 伪头顺序）
-  L4  请求签名（body+timestamp 的 HMAC，需从官方客户端二进制里读算法）
-  L5  设备标识一致性（machineId / qimei36 / device_token 与登录态绑定）
-
-本脚本做的是**差分定位**：同一账号、同一 body，每次只改一个变量，
-把「哪个变量让 11-128 消失」变成可观测事实。禁止在定位前先改网关代码——
-盲改会把多个变量一起动，之后就再也分不清是哪一项生效。
+可调维度
+--------
+  TLS      客户端 TLS 指纹（curl 默认 / Chrome）
+  UA       User-Agent 取值
+  Headers  请求头组（完整 / 最小）
+  Path     端点路径（/v2 与 /console）
+  Device   X-Device-Token 是否携带
 
 用法
 ----
@@ -34,12 +32,11 @@ X-Device-Token / X-Machine-ID 派生）。上游收紧到「通道校验」时�
     <out>/chanprobe-<ts>.json   完整记录（含每变体的响应原文前 400 字）
     stdout                      矩阵表
 
-纪律
+注意
 ----
-  * 默认每变体只发 1 次；`--repeat N` 才重复（上游对高频异常请求更敏感）。
-  * 变体之间 sleep（默认 1.5s），避免把「限流」误读成「指纹被拦」。
-  * 任何变体拿到 11-128 都**不要**立刻判死刑：先看同一轮是否所有变体都 11-128
-    （那是账号/token 层面问题），再比较差异项。
+  * 默认每变体只发 1 次；`--repeat N` 才重复（减少对服务的打扰）。
+  * 变体之间 sleep（默认 1.5s），避免把限流响应误读成其他原因。
+  * 若同一轮所有变体返回相同错误，通常是账号或凭证层面的问题，而非请求形态。
 """
 
 from __future__ import annotations
@@ -276,19 +273,19 @@ def summarize(records: list[dict[str, Any]]) -> None:
                if r["kind"].startswith("CHANNEL_REFUSED")]
         miss = [r["variant"] for r in records
                 if not r["kind"].startswith("CHANNEL_REFUSED")]
-        print(f"通道校验命中变体: {', '.join(hit)}")
-        print(f"通道校验未命中变体: {', '.join(miss) if miss else '（无）'}")
+        print(f"返回拒绝的变体: {', '.join(hit)}")
+        print(f"正常通过的变体: {', '.join(miss) if miss else '（无）'}")
         if miss and hit:
             print("→ 结论方向：对比命中/未命中变体的差异项，差异项即被校验的维度。")
     elif kinds == {"OK"}:
-        print("全部变体通过 —— 当前账号此刻未触发通道校验。"
-              "此时探测无信息量，需在 11-128 复现窗口内重跑。")
+        print("全部变体通过 —— 当前账号此刻未出现拒绝。"
+              "此时探测无信息量，需在问题复现时重跑。")
     else:
-        print(f"未出现通道校验；出现其它分类：{', '.join(sorted(kinds))}")
+        print(f"未出现请求拒绝；出现其它分类：{', '.join(sorted(kinds))}")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="上游通道校验差分探针")
+    ap = argparse.ArgumentParser(description="上游请求形态诊断工具")
     ap.add_argument("--auth", help="auths/workbuddy-<uid>.json 路径")
     ap.add_argument("--model", default="deepseek-v4.1")
     ap.add_argument("--stream", action="store_true", default=True)

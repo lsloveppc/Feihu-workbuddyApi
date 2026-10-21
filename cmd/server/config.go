@@ -165,15 +165,11 @@ type Config struct {
 		DeviceToken string `json:"device_token"`
 		// DeviceTokenFile device token 文件路径兜底（宿主落盘的桌面端 token，5 分钟读取缓存）。
 		DeviceTokenFile string `json:"device_token_file"`
-		// FollowOfficialVersion 出站版本段跟随本机官方客户端（读 last-launch.json）。
-		//
-		// 默认 true。仓库早期把版本写死为 5.5.4（UA）与 5.5.6（桌面指纹），而上游
-		// 桌面端已到 5.8.x —— 版本不一致本身就是通道校验（11-128 request illegal）
-		// 的破绽。开启后网关从真实安装的客户端学版本，官方升级即自动跟上。
-		// 显式配 false 可回到「内置默认版本」的旧行为。
+		// FollowOfficialVersion 出站版本段跟随本机已安装客户端（读 last-launch.json）。
+		// 默认 true：客户端升级后无需改配置即可保持一致；显式配 false 则用内置默认值。
 		FollowOfficialVersion *bool `json:"follow_official_version"`
-		// DesktopVersion 桌面指纹上报（/v2/report 等）的版本段显式覆盖。
-		// 空 = 跟随 client_version 口径（与 UA 自洽）。
+		// DesktopVersion 桌面端事件上报（/v2/report 等）的版本段显式覆盖。
+		// 空 = 跟随 client_version 口径。
 		DesktopVersion string `json:"desktop_version"`
 		// OfficialLaunchFile 官方客户端 last-launch.json 路径显式覆盖。
 		// 空 = 自动探测 ~/.workbuddy、%APPDATA%\WorkBuddy、%LOCALAPPDATA%\WorkBuddy。

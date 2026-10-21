@@ -9,8 +9,8 @@ import (
 // TestEffectiveClientVersionPrecedence 钉住版本段的优先级链：
 // 显式配置 > 跟随本机官方客户端 > 内置默认。
 //
-// 这条链是「上游收紧反代」的报文层对策核心：旧实现把版本写死，上游升级后
-// 网关自报的版本会永久落后；现在至少有一个能自动跟上的路径。
+// 这条链决定出站版本段的来源：显式配置优先，其次是本机安装的客户端版本，
+// 最后回落内置默认值。
 func TestEffectiveClientVersionPrecedence(t *testing.T) {
 	dir := t.TempDir()
 	launch := filepath.Join(dir, "last-launch.json")
@@ -36,7 +36,7 @@ func TestEffectiveClientVersionPrecedence(t *testing.T) {
 		t.Errorf("follow 关闭时应回落默认：got=%q want %q", got, defaultClientVersion)
 	}
 
-	// 4) follow 打开但文件不存在 → 回落到默认，不产生空版本号（空 UA 会被上游直接拒）。
+	// 4) follow 打开但文件不存在 → 回落到默认，不产生空版本号。
 	c4 := &Client{FollowOfficialVersion: true, OfficialLaunchFile: filepath.Join(dir, "missing.json")}
 	if got := c4.effectiveClientVersion(); got != defaultClientVersion {
 		t.Errorf("探测失败应回落默认：got=%q want %q", got, defaultClientVersion)
@@ -65,8 +65,8 @@ func TestOfficialVersionProbeRejectsMalformed(t *testing.T) {
 	}
 }
 
-// TestDesktopVersionSelfConsistency 桌面指纹版本默认跟随 UA 版本段：
-// 同一实例跨端点自报两个版本，比版本偏旧更容易被上游关联识别。
+// TestDesktopVersionSelfConsistency 桌面端事件版本默认跟随 UA 版本段，
+// 保证同一实例各端点上报的版本一致。
 func TestDesktopVersionSelfConsistency(t *testing.T) {
 	c := &Client{ClientVersion: "5.8.3", CliVersion: "2.137.1"}
 

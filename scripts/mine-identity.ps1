@@ -1,31 +1,28 @@
 ﻿<#
 .SYNOPSIS
-  绯狐 · 真机身份迁移：把本机官方 WorkBuddy 客户端的设备标识注入 auths/*.json。
+  绯狐 · 从本机已安装客户端读取设备标识，写入 auths/*.json。
 
 .DESCRIPTION
-  解决的问题
-  ----------
-  上游做通道真实性校验（11-128 "request illegal"）时，设备标识是账号级、可持久化
-  的强信号。网关在此之前一律用 uid 哈希**伪造** machineId/qimei36，于是「一个在
-  真机上登录过的账号，出站时却报另一台设备」——这是最容易被判成非官方客户端的
-  形态（真机与网关两台设备同时活跃）。
+  出站请求可以携带 machineId / qimei36 等设备标识。这些值若按 uid 派生，
+  会与本机实际安装环境不一致；本脚本从客户端数据目录读取实际值写入 auth 文件，
+  使出站标识与运行环境保持一致。
 
-  本脚本把真机的设备标识搬进 auth 文件，让网关以「同一台设备」的身份出站：
+  读取项：
     - machine_id ← <data-dir>\device-id          （36 位 UUID）
     - qimei36    ← <data-dir>\qimei-cache.json   （腾讯 QIMEI36）
     - device_token（可选）← 手工指定，见下
 
-  三者都只写「有真值」的键，缺哪个就跳过哪个——伪造比缺失更容易被识别。
+  三者都只写「有值」的键，缺哪个就跳过哪个。
 
 .PARAMETER AuthDir
   auths 目录（默认 .\auths，与 config.json 的 auth_dir 一致）。
 
 .PARAMETER DataDir
-  官方客户端数据目录（默认自动探测 ~\.workbuddy）。
+  客户端数据目录（默认自动探测 ~\.workbuddy）。
 
 .PARAMETER DeviceToken
-  可选：手工提供 X-Device-Token。真实来源在官方客户端的加密 blob（.workbuddy\keyblob，
-  Electron OSCrypt 封装），需要 DPAPI 解封，本脚本不做自动提取。
+  可选：手工提供 X-Device-Token。客户端的加密存储（.workbuddy\keyblob）需要
+  DPAPI 解封，本脚本不做自动提取。
 
 .PARAMETER DryRun
   只打印将写入的内容，不改文件。
@@ -42,7 +39,7 @@ param(
     # Only 只处理文件名/uid 匹配该子串的 auth。多账号环境务必用它：
     # 真机标识只应注入「确实在这台机器上登录过」的那个账号。
     [string]$Only = "",
-    # Force 多账号时强行全部注入（默认拒绝，见下方风控说明）。
+    # Force 多账号时强行全部写入（默认拒绝，见下方说明）。
     [switch]$Force,
     [switch]$DryRun
 )
@@ -114,15 +111,15 @@ if ($Only) {
     if (-not $files) { Write-Host "-Only '$Only' 没匹配到任何 auth 文件" -ForegroundColor Red; exit 1 }
 }
 
-# 多账号防护（重要）：把同一台设备的 machine_id/qimei36 注入多个账号，等于告诉上游
-# 「一台设备关联 N 个账号」—— 这正是批量小号最典型的关联特征，比设备标识缺失更危险。
-# 所以默认拒绝，要求显式 -Only 指定真机登录过的那个账号；确实要共用本机才加 -Force。
+# 多账号防护：把同一台设备的 machine_id/qimei36 写入多个账号，等同于声明它们
+# 来自同一台设备。默认拒绝，要求用 -Only 指定实际在本机登录过的那个账号；
+# 确实需要共用本机标识时才加 -Force。
 if (-not $Only -and $files.Count -gt 1 -and -not $Force) {
     Write-Host ""
     Write-Host "检测到 $($files.Count) 个账号，已拒绝全部注入。" -ForegroundColor Yellow
-    Write-Host "原因：同一 device-id / qimei36 注入多个账号 = 上游视角「一台设备关联多个账号」，" -ForegroundColor Yellow
-    Write-Host "      这是批量小号的典型关联特征。" -ForegroundColor Yellow
-    Write-Host "做法：用 -Only <uid片段> 只注入真机登录过的那个账号；确实要多账号共用本机再加 -Force。" -ForegroundColor Yellow
+    Write-Host "原因：多个账号写入同一份 device-id / qimei36，等同于声明它们来自同一台设备。" -ForegroundColor Yellow
+    Write-Host "常规做法是用 -Only <uid片段> 只写入实际在本机登录过的那个账号；" -ForegroundColor Yellow
+    Write-Host "确实需要多账号共用本机标识时再加 -Force。" -ForegroundColor Yellow
     exit 3
 }
 

@@ -1,21 +1,11 @@
-// official_version.go 客户端版本一致性：把出站版本段对齐「本机真实安装的官方
-// 客户端版本」，而不是仓库里写死的常量。
+// official_version.go 出站版本段的来源解析。
 //
-// 为什么需要（上游收紧反代通道的主因之一）
-// ----------------------------------------
-// 仓库早期把客户端版本写死在 headers.go（5.5.4）与 desktop.go（5.5.6）两处，
-// 而上游桌面端已经走到 5.8.3（本机 .workbuddy/last-launch.json 实测）。三个
-// minor 的差距 + 同一网关对上游自报两个不同版本，是「报文层」最容易被抓的破绽：
+// 版本段用于组装 User-Agent 与桌面端事件上报的版本字段，取值优先级：
+//   1. 配置项 upstream.client_version（显式指定）；
+//   2. 本机已安装客户端的启动记录 last-launch.json（跟随实际安装版本）；
+//   3. 内置默认版本。
 //
-//   - 上游只要做「UA 版本 vs 该账号最近活跃客户端版本」的一致性检查，
-//     报文其余部分再完美也会被判成非官方客户端 → 11-128 "request illegal"；
-//   - 同一实例 chat 走 5.5.4、桌面指纹上报走 5.5.6，跨端点关联时自相矛盾。
-//
-// 因此本文件把版本变成一个**有真实来源的可观测值**：读官方客户端自己写的
-// last-launch.json，失败才回落内置默认。运维可用配置钉死（上游改版时不必改代码）。
-//
-// 注意边界：这里只保证「自洽 + 跟随真实设备」，不保证上游一定按版本判定。
-// 版本一致是通道校验的必要不充分条件——定位仍需 scripts/chanprobe.py 差分实测。
+// 统一来源的好处是同一实例各端点上报的版本始终一致，客户端升级后无需改代码。
 package upstream
 
 import (
@@ -48,8 +38,7 @@ type officialVersionCache struct {
 // officialProbePaths 返回 last-launch.json 的候选路径（按优先级）。
 //
 // 显式指定（extra 非空）时**只认它**，不回落到自动探测：静默改用别处读到的版本
-// 会掩盖「路径配错了」这件事，而版本号恰恰是本次改造要盯紧的东西（上游收紧后
-// 版本不一致会被判非官方客户端）。宁可探测失败回落内置默认并在启动日志告警。
+// 会掩盖「路径配错了」这件事。宁可探测失败回落内置默认并在启动日志告警。
 //
 // 自动探测覆盖三种部署形态：
 //   - 本机直跑：用户目录下的 .workbuddy / AppData；
@@ -135,8 +124,7 @@ func (c *Client) OfficialVersion() (ver, build, source string, ok bool) {
 // effectiveClientVersion 生效的客户端版本段（UA 的 `WorkBuddy/<ver>` 与
 // X-IDE-Version 共用）。优先级：
 //
-//  1. Client.ClientVersion —— 显式配置，运维已知上游期望值时钉死（上游改版
-//     不必改代码，改配置即可）；
+//  1. Client.ClientVersion —— 显式配置，需要固定版本时使用（改配置即可，不必改代码）；
 //  2. FollowOfficialVersion 开启 + 探测到官方客户端 → 用官方版本（自洽于真实设备）；
 //  3. 内置 defaultClientVersion —— 兜底，保证任何环境都有确定值。
 func (c *Client) effectiveClientVersion() string {
@@ -154,11 +142,10 @@ func (c *Client) effectiveClientVersion() string {
 	return defaultClientVersion
 }
 
-// effectiveDesktopVersion 桌面指纹的版本段。
+// effectiveDesktopVersion 桌面端事件上报的版本段。
 //
-// 默认**跟随 effectiveClientVersion**，而不是 desktop.go 里那个实测常量 5.5.6：
-// 同一实例跨端点自报不同版本，比版本偏旧更容易被关联识别。保留 DesktopVersion
-// 显式覆盖，供「桌面任务点亮依赖某特定版本」的场景钉死实测值。
+// 默认跟随 effectiveClientVersion，使同一实例各端点上报的版本一致。
+// 保留 DesktopVersion 显式覆盖，供特定场景固定版本值。
 func (c *Client) effectiveDesktopVersion() string {
 	if c != nil && c.DesktopVersion != "" {
 		return c.DesktopVersion

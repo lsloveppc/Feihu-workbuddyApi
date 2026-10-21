@@ -45,17 +45,12 @@ type Auth struct {
 	// 顶层 device_token 也会被解析（与桌面端共用状态文件的部署方式）。
 	DeviceToken string
 
-	// QIMEI36 真实设备指纹（腾讯 QIMEI36 —— 桌面端与移动端共用的一套设备标识）。
-	// 来源：官方客户端数据目录 `.workbuddy/qimei-cache.json` 的 `qimei36` 键。
-	//
-	// 为什么要真实值：上游做通道真实性校验时，设备标识是账号级、可持久化的强信号。
-	// 仓库此前一律用 uid 哈希伪造（upstream/desktop.go deriveID），与真机登录时
-	// 上报过的 qimei36 不一致 —— 一个「真机登录过、随后报了两台不同设备」的账号，
-	// 是最容易被判成非官方客户端的形态。有真值用真值，没有才回落派生。
+	// QIMEI36 设备标识（腾讯 QIMEI36）。来源：客户端数据目录下
+	// `qimei-cache.json` 的 `qimei36` 键。空 = 由 uid 派生。
 	QIMEI36 string
 
-	// MachineID 真实机器标识。来源：官方客户端 `.workbuddy/device-id`（36 位 UUID），
-	// 或 auth 文件手写 `machine_id`。空 = 回落 uid 稳定派生。
+	// MachineID 机器标识。来源：客户端数据目录的 `device-id`（36 位 UUID），
+	// 或 auth 文件手写 `machine_id`。空 = 由 uid 稳定派生。
 	MachineID string
 }
 

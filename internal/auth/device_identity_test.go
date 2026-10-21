@@ -18,9 +18,8 @@ const nestedIdentityDoc = `{
 
 // TestParseDeviceIdentityNested 嵌套形（插件 OAuth 输出）解析真机标识。
 //
-// 为什么要有这一条：改造前 auth 文件只认 accessToken/uid/device_token，真机标识
-// 无处可放，网关只能用 uid 哈希伪造 machineId/qimei36 —— 一个真机登录过的账号
-// 报出另一台「虚拟设备」，是上游通道校验最容易抓的形态。
+// 为什么要有这一条：auth 文件除凭证外还要承载设备标识（machineId/qimei36），
+// 否则出站只能按 uid 派生，与实际安装环境不一致。
 func TestParseDeviceIdentityNested(t *testing.T) {
 	a, err := Parse([]byte(nestedIdentityDoc))
 	if err != nil {
@@ -52,8 +51,8 @@ func TestParseDeviceIdentityFlat(t *testing.T) {
 // TestSaveAtomicRoundTripsDeviceIdentity token 刷新后的原子写回不能丢真机标识。
 //
 // 这是最容易回归的一条：refresh 路径会用 Parse 出的 *Auth 重新 SaveAtomic，
-// 若写回时漏掉 qimei36/machine_id，它们的真值会在第一次 refresh 后静默消失，
-// 网关随即退回伪造派生的设备标识——而这次退化不会有任何报错。
+// 若写回时漏掉 qimei36/machine_id，它们会在第一次 refresh 后静默消失，
+// 出站随之退回 uid 派生值，且不会有任何报错。
 func TestSaveAtomicRoundTripsDeviceIdentity(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "workbuddy-u-identity.json")

@@ -18,7 +18,7 @@ const (
 	// 它不是主来源：默认开启的 upstream.follow_official_version 会优先读本机官方
 	// 客户端的 last-launch.json（真实安装版本），只有探测不到时才落到这里。
 	// 所以这个值只需「不离谱」——给没装官方客户端的部署一个不至于太旧的版本号。
-	// 2026-10 实测官方桌面端为 5.8.3；上游改版时同步此值即可，逻辑不用动。
+	// 上游客户端升级时同步此值即可，逻辑不用动。
 	defaultClientVersion = "5.8.3"
 	// defaultCliVersion 出站 UA 中 `CLI/<ver>` 段版本。对齐官方内置 CLI（2.137.1）。
 	// config upstream.cli_version 可覆盖（空 = 内置默认）。
@@ -126,9 +126,8 @@ func (c *Client) injectDeviceToken(req *http.Request, a *auth.Auth) {
 //   - purpose="machine" → X-Machine-ID（设备级，跨会话稳定）
 //   - purpose="session" → X-Session-ID（账号固定会话，跨重启稳定）
 //
-// 与 injectDeviceToken 的 X-Device-Token 并存不冲突：那是登录时上游签发的
-// 真实设备令牌（有则发，权威）；本对头是「每账号一台固定虚拟设备」的稳定指纹，
-// 防多号被上游按设备指纹缺失/漂移关联风控。两者是不同头族，官方桌面端都发。
+// 与 injectDeviceToken 的 X-Device-Token 并存不冲突：后者是登录时签发的设备
+// 令牌（有则发），前者是每账号固定的机器标识，二者属于不同头族。
 func deriveAccountStableID(uid, purpose string) string {
 	sum := sha256.Sum256([]byte("wb2a:" + purpose + ":" + uid))
 	return hex.EncodeToString(sum[:18]) // 36 hex chars
@@ -136,10 +135,8 @@ func deriveAccountStableID(uid, purpose string) string {
 
 // injectAccountStableHeaders 在 req 注入 X-Machine-ID / X-Session-ID。
 //
-// X-Machine-ID 优先用真机标识（auth.MachineID，来源官方客户端 .workbuddy/device-id）：
-// 一个真机登录过的账号若在出站请求里报出另一台「虚拟设备」，是最容易被上游关联
-// 识别的形态（真机与网关两台设备同时活跃）。没有真值才回落 uid 派生 —— 派生值仍
-// 满足「每账号一台固定设备、跨重启恒定、账号间互异」，只是不对应真实硬件。
+// X-Machine-ID 优先取 auth.MachineID（来源客户端数据目录的 device-id），
+// 未配置时按 uid 稳定派生：满足每账号固定标识、跨重启恒定、账号间互异。
 // X-Session-ID 恒派生（会话级标识与设备无关，官方也无对应真实值可对齐）。
 func (c *Client) injectAccountStableHeaders(req *http.Request, a *auth.Auth) {
 	if a == nil || a.UID == "" {
@@ -284,8 +281,8 @@ func (c *Client) injectConversationHeaders(req *http.Request, meta ChatMeta) {
 		convReqID = session.NewMessageID()
 	}
 	messageID := session.NewMessageID()
-	// 会话头三元组必须齐全：国际端点收紧通道校验后，缺 X-Conversation-ID 的
-	// 请求会直接 400 / 11128（conversation id missing）。入站没带会话 ID 时
+	// 会话头三元组必须齐全：缺 X-Conversation-ID 的
+	// 请求会被上游拒绝（400 / conversation id missing）。入站没带会话 ID 时
 	// 本级补一个 32 hex（与 X-Conversation-Request-ID 的零值兜底同口径），
 	// 不再因为「透传优先」而漏发该头（issue #190）。
 	conversationID := meta.ConversationID
