@@ -920,8 +920,8 @@ func TestUpgBinaryUpgradeSmoke(t *testing.T) {
 	root := upgRepoRoot(t)
 
 	tmp := t.TempDir()
-	oldExe := filepath.Join(tmp, "wb2api-old.exe")
-	newExe := filepath.Join(tmp, "wb2api-new.exe")
+	oldExe := filepath.Join(tmp, "cmb-old.exe")
+	newExe := filepath.Join(tmp, "cmb-new.exe")
 	upgBuild(t, oldSrc, oldExe)
 	upgBuild(t, root, newExe)
 

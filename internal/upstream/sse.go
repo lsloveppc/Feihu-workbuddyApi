@@ -399,7 +399,7 @@ func normalizeFrame(obj map[string]any) map[string]any {
 		out["object"] = "chat.completion.chunk"
 	}
 	if _, ok := out["id"]; !ok {
-		out["id"] = "chatcmpl-wb2api"
+		out["id"] = "chatcmpl-feihu"
 	}
 	if chs, ok := obj["choices"].([]any); ok {
 		nchs := make([]any, 0, len(chs))
@@ -531,7 +531,7 @@ func StreamHint(w http.ResponseWriter, r io.Reader, hintFn func(string) string, 
 
 	// firstID 透传流的消息级 id 基准：缓存首个非空上游 id，后续帧缺失/空串时复用
 	// （issue #35：同一条 SSE 消息所有帧共用一个真实 id，后台按 id 归并；此前中间帧
-	// 一律补 chatcmpl-wb2api 哨兵，造成同流 id 分裂）。全流无真实 id → 才出现哨兵。
+	// 一律补 chatcmpl-feihu 哨兵，造成同流 id 分裂）。全流无真实 id → 才出现哨兵。
 	firstID := ""
 
 	// 标记修复（见 dsml.go）：把上游正文里的原生工具调用标记还原成 delta.tool_calls。

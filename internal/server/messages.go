@@ -214,7 +214,7 @@ func buildMessagesSearchResponse(query, model string, out *upstream.SearchOutcom
 		content = append(content, messagesTextBlock{Type: "text", Text: "", Citations: citations})
 	}
 	return messagesResponse{
-		ID:           "msg_wb2api_" + callID,
+		ID:           "msg_feihu_" + callID,
 		Type:         "message",
 		Role:         "assistant",
 		Model:        model,

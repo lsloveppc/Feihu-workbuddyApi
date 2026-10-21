@@ -335,7 +335,7 @@ func TestMessagesResponseIDsAreUnique(t *testing.T) {
 	if x, y := idOf(a), idOf(b); x != "" && x == y {
 		t.Errorf("tool_use_id 重复: %q", x)
 	}
-	if !strings.HasPrefix(a.ID, "msg_wb2api_") {
-		t.Errorf("msg id=%q want msg_wb2api_ 前缀", a.ID)
+	if !strings.HasPrefix(a.ID, "msg_feihu_") {
+		t.Errorf("msg id=%q want msg_feihu_ 前缀", a.ID)
 	}
 }

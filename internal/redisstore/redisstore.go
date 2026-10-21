@@ -45,8 +45,8 @@ type Store interface {
 }
 
 const (
-	bindPrefix  = "wb2api:bind:"
-	stateKey    = "wb2api:state"
+	bindPrefix  = "feihu:bind:"
+	stateKey    = "feihu:state"
 	readTimeout = 3 * time.Second
 )
 

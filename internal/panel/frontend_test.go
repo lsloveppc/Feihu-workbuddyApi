@@ -1334,14 +1334,14 @@ function boot(stored) {
   const ctx = {};
   vm.createContext(ctx);
   vm.runInContext(
-    "const LS_EXP_FOLD='wb2api.expfold.v1';" +
+    "const LS_EXP_FOLD='feihu.expfold.v1';" +
     "const store=" + JSON.stringify(stored) + ";" +
     "const pad={hidden:false};" +
     "const btn={textContent:'',attrs:{},setAttribute:function(k,v){this.attrs[k]=v;}};" +
     "function $(id){return id==='expPad'?pad:(id==='btnExpFold'?btn:null);}" +
     "const localStorage={getItem:function(k){return (k in store)?store[k]:null;},setItem:function(k,v){store[k]=v;}};" +
     slice +
-    "\nthis.state=function(){return {hidden:pad.hidden,text:btn.textContent,aria:btn.attrs['aria-expanded'],raw:store['wb2api.expfold.v1']||null};};" +
+    "\nthis.state=function(){return {hidden:pad.hidden,text:btn.textContent,aria:btn.attrs['aria-expanded'],raw:store['feihu.expfold.v1']||null};};" +
     "\nthis.click=function(){btn.onclick();};",
     ctx
   );
@@ -1353,7 +1353,7 @@ a.click();
 const folded = a.state();
 a.click();
 const unfolded = a.state();
-const restored = boot({'wb2api.expfold.v1': '1'}).state();
+const restored = boot({'feihu.expfold.v1': '1'}).state();
 process.stdout.write(JSON.stringify({fresh: fresh, folded: folded, unfolded: unfolded, restored: restored}));`
 	f, err := os.CreateTemp(t.TempDir(), "expiry-fold-*.cjs")
 	if err != nil {
@@ -1396,8 +1396,8 @@ func TestPanelRemarkAndFoldWiring(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"LS_REMARKS = 'wb2api.remarks.v1'",
-		"LS_EXP_FOLD = 'wb2api.expfold.v1'",
+		"LS_REMARKS = 'feihu.remarks.v1'",
+		"LS_EXP_FOLD = 'feihu.expfold.v1'",
 		"function remarkKey(",
 		"function remarkName(",
 		"function applyExpFold(",

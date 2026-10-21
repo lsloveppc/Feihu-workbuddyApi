@@ -113,7 +113,7 @@ const notFoundCooldown = 60 * time.Second
 // ServiceName 网关身份标识。经 /healthz 响应体 service 字段与 X-Service 头同时透出：
 // 宿主（如 workbuddy-switch 托管网关子进程）探测同端口的旧服务/其他服务时，对方即使
 // 返回 2xx 也不带本标识，宿主据此可识别"假成功"。
-const ServiceName = "workbuddy2api"
+const ServiceName = "feihu"
 
 // Handler 主路由。
 type Handler struct {
